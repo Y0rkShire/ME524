@@ -1,35 +1,35 @@
-y = c(10.07, 14.73, 17.94, 23.93, 29.61,
+Misrala <- data.frame(y = c(10.07, 14.73, 17.94, 23.93, 29.61,
                             35.18, 40.02, 44.82, 50.76, 55.05,
-                            61.01, 66.4, 75.47, 81.78)
-x = c(77.6, 114.9, 141.1, 190.8, 239.9,
+                            61.01, 66.4, 75.47, 81.78),
+                      x = c(77.6, 114.9, 141.1, 190.8, 239.9,
                             289, 332.8, 378.4, 434.8, 477.3,
-                            536.8, 593.1, 689.1, 760)
-Misrala <- data.frame(y,x)
+                            536.8, 593.1, 689.1, 760))
 
 Loss_f1 <- function(b){
   b1 <- b[1]
   b2 <- b[2]
-  Q <- sum( (y - b1 * (1 - exp(-x * b2)))^2 )
+  Q <- sum( (Misrala$y - b1 * (1 - exp(-Misrala$x * b2)))^2 )
   return(Q)
 }
 
 Grad_f1 <- function(b){
   b1 <- b[1]
   b2 <- b[2]
-  del_b1 <- sum(2 * ( exp(-b2 * x) - 1) * (y - (1 - exp(-b2 * x)) * b1))
-  del_b2 <- sum(-2 * b1 * x * (y - b1 * (1 - exp(-x * b2))) * exp(-x * b2))
+  del_b1 <- sum(2 * ( exp(-b2 * Misrala$x) - 1) * (Misrala$y - (1 - exp(-b2 * Misrala$x)) * b1))
+  del_b2 <- sum(-2 * b1 * Misrala$x * (Misrala$y - b1 * (1 - exp(-Misrala$x * b2))) * exp(-Misrala$x * b2))
   return(c(del_b1,del_b2))
 }
 
 Hess_f1 <- function(b){
   b1 <- b[1]
   b2 <- b[2]
-  del_b1_2 <- sum( 2 *(exp( -x * b2) - 1) ^2 )
-  del_b1_b2 <- sum( -2 * x * exp(-2 * x * b2) * ((y - 2 * b1) * exp(x * b2) + 2 * b1))
-  del_b2_2 <- sum((2 * b1 * x^2 * exp(-2 * x * b2) * ((y - b1) * exp(x * b2) + 2 * b1)))
+  del_b1_2 <- sum( 2 *(exp( -Misrala$x * b2) - 1) ^2 )
+  del_b1_b2 <- sum( -2 * Misrala$x * exp(-2 * Misrala$x * b2) * ((Misrala$y - 2 * b1) * exp(Misrala$x * b2) + 2 * b1))
+  del_b2_2 <- sum((2 * b1 * Misrala$x^2 * exp(-2 * Misrala$x * b2) * ((Misrala$y - b1) * exp(Misrala$x * b2) + 2 * b1)))
   return(matrix(c(del_b1_2, del_b1_b2, del_b1_b2, del_b2_2),nrow = 2))
 }
 
+is.pos.def <- function(hess) all(eigen(hess, only.values = TRUE)$values > 0)
 # Loss_f1 <- function(b1,b2){
 #   return(sum( (y - b1 * (1 - exp(-x * b2)))^2 ))
 # }
@@ -58,18 +58,37 @@ Hess_f1 <- function(b){
 #        col = "blue", length = 0.1, lwd = 2)
 # arrows(250, 0.0005, 250 + 5.058065e+00 , 0.0005  + 1.058997e-05,
 #        col = "blue", length = 0.1, lwd = 2)
+Newton_Raph <- function(b, hess, grad,func) {
+  i <- c(1,as.numeric(Sys.time()))
+  b0 <- b
+  while (i[1] <= 1000) {
+    if (rcond(hess(b0)) <= 1e-15) {
+      print("Hessiana não invertível")
+      return(list(b = b0,Iter = i[1],grad = grad(b0),pos_Def = is.pos.def(hess(b0)), tempo = paste(as.numeric(Sys.time()) - i[2 ], "seconds"),perda = func(b0)))
+    }
+    b <- b0 - solve(hess(b0), grad(b0))
+    if (norm(b-b0,type = "2") <= 1e-6) {
+      print("Convergiu")
+      return(list(b = b,Iter = i[1],grad = grad(b),pos_Def = is.pos.def(hess(b)),tempo = paste(as.numeric(Sys.time()) - i[2 ],"seconds"),perda = func(b0)))
+    }
+    b0 <- b
+    i[1] <- i[1] + 1
+  }
+  print("Número máximo de iterações")
+  return(list(b = b,Iter = i[1],grad = grad(b),eigen(hess(b),symmetric = T,only.values =  T), tempo = paste(as.numeric(Sys.time()) - i[2 ], "seconds"),perda = func(b0)))
+}
+
 find_step <- function(hess,grad,b, g = (25:1)/25){
   for(i in g){
     if(rcond(hess(b -  i*solve(hess(b),grad(b) ))) > 1e-15){
-      print(i)
       return(i*solve(hess(b),grad(b)))
       break
     }
   }
 }
 
-Newton_Raph <- function(b, hess, grad) {
-  i <- 0
+Newton_Raph_cond <- function(b, hess, grad) {
+  i <- 1
   b0 <- b
   while (i <= 1000) {
     if (rcond(hess(b0)) <= 1e-15) {
@@ -97,9 +116,6 @@ Newton_Raph <- function(b, hess, grad) {
   print("Reached maximum iterations")
   return(b0)
 }
-
-Newton_Raph(c(250, 0.0005),hess = Hess_f1,grad = Grad_f1)
-Newton_Raph(c(500, 0.0001),hess = Hess_f1,grad = Grad_f1)
 
 targetStep <- function(b, g = (1:50)/50,func,hess,grad){
   pk <- solve(hess(b),grad(b))
@@ -134,6 +150,12 @@ Newton_Raph_Line <- function(b,func,hess,grad){
   }
   return(b0)
 }
+
+Newton_Raph(c(250, 0.0005),hess = Hess_f1,grad = Grad_f1,func = Loss_f1)
+Newton_Raph(c(500, 0.0001),hess = Hess_f1,grad = Grad_f1,func = Loss_f1)
+
+Newton_Raph_cond(c(250, 0.0005),hess = Hess_f1,grad = Grad_f1)
+Newton_Raph_cond(c(500, 0.0001),hess = Hess_f1,grad = Grad_f1)
 
 Newton_Raph_Line(c(250, 0.0005),func = Loss_f1,grad = Grad_f1,hess = Hess_f1)
 Newton_Raph_Line(c(500, 0.0001),func = Loss_f1,grad = Grad_f1,hess = Hess_f1)
