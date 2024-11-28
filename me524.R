@@ -66,7 +66,7 @@ Newton_Raph <- function(b, hess, grad,func) {
       print("Hessiana não invertível")
       return(list(b = b0,Iter = i[1],grad = grad(b0),pos_Def = is.pos.def(hess(b0)), tempo = paste(as.numeric(Sys.time()) - i[2 ], "seconds"),perda = func(b0)))
     }
-    b <- b0 - solve(hess(b0), grad(b0))
+    b <- b0 - solve(hess(b0)) %*% grad(b0)
     if (norm(b-b0,type = "2") <= 1e-6) {
       print("Convergiu")
       return(list(b = b,Iter = i[1],grad = grad(b),pos_Def = is.pos.def(hess(b)),tempo = paste(as.numeric(Sys.time()) - i[2 ],"seconds"),perda = func(b0)))
@@ -77,46 +77,6 @@ Newton_Raph <- function(b, hess, grad,func) {
   print("Número máximo de iterações")
   return(list(b = b,Iter = i[1],grad = grad(b),eigen(hess(b),symmetric = T,only.values =  T), tempo = paste(as.numeric(Sys.time()) - i[2 ], "seconds"),perda = func(b0)))
 }
-
-find_step <- function(hess,grad,b, g = (25:1)/25){
-  for(i in g){
-    if(rcond(hess(b -  i*solve(hess(b),grad(b) ))) > 1e-15){
-      return(i*solve(hess(b),grad(b)))
-      break
-    }
-  }
-}
-
-Newton_Raph_cond <- function(b, hess, grad) {
-  i <- 1
-  b0 <- b
-  while (i <= 1000) {
-    if (rcond(hess(b0)) <= 1e-15) {
-      print("Non-invertible Hessian at the current point")
-      return(b0)
-    }
-    step <- solve(hess(b0), grad(b0))
-    gamma <- 1
-    b <- b0 - step
-    while (rcond(hess(b)) < 1e-16 && gamma > 0) {
-      gamma <- gamma - 0.01
-      b <- b0 - gamma * step
-    }
-    if (gamma <= 0) {
-      print("Failed to find a valid gamma")
-      return(b0)
-    }
-    b0 <- b
-    if (max(abs(step)) <= 1e-16) {
-      print("Converged")
-      return(b0)
-    }
-    i <- i + 1
-  }
-  print("Reached maximum iterations")
-  return(b0)
-}
-
 targetStep <- function(b, g = (1:50)/50,func,hess,grad){
   pk <- solve(hess(b),grad(b))
   Loss <- numeric(length(g))
@@ -154,11 +114,8 @@ Newton_Raph_Line <- function(b,func,hess,grad){
 Newton_Raph(c(250, 0.0005),hess = Hess_f1,grad = Grad_f1,func = Loss_f1)
 Newton_Raph(c(500, 0.0001),hess = Hess_f1,grad = Grad_f1,func = Loss_f1)
 
-Newton_Raph_cond(c(250, 0.0005),hess = Hess_f1,grad = Grad_f1)
-Newton_Raph_cond(c(500, 0.0001),hess = Hess_f1,grad = Grad_f1)
-
-Newton_Raph_Line(c(250, 0.0005),func = Loss_f1,grad = Grad_f1,hess = Hess_f1)
-Newton_Raph_Line(c(500, 0.0001),func = Loss_f1,grad = Grad_f1,hess = Hess_f1)
+Newton_Raph_Line(c(250, 0.0005),func = Loss_f1,grad = Grad_f1,hess = Hess_f1,func = Loss_f1)
+Newton_Raph_Line(c(500, 0.0001),func = Loss_f1,grad = Grad_f1,hess = Hess_f1,func = Loss_f1)
 
 targetStep_grad <- function(b, g = (1:25)/25,func,grad){
   pk <- grad(b)
@@ -175,7 +132,6 @@ Grad_Desc <- function(b,func,grad){
   while (i <= 1000) {
     b0 <- b
     eta <- targetStep_grad(b,func = func,grad = grad)[which.min(targetStep_grad(b,func = func,grad = grad)[,2]),1]
-    print(eta)
     b <- b0 - eta * (grad(b0))
     if(max(abs(b0 - b)) <= 0.0001){
       return(b0)
@@ -277,3 +233,4 @@ Res_2_N_r <- Newton_Raph_Line(c(1300, 1500, 500, 75, 1, 0.4, 0.05),func = Loss_f
 
 Res_1_G_d <- Grad_Desc(c(1000, 1000, 400, 40, 0.7,0.3,0.03),func = Loss_f2,grad = Grad_f2)
 Res_2_G_d <- Grad_Desc(c(1300, 1500, 500, 75, 1, 0.4, 0.05),func = Loss_f2,grad = Grad_f2)
+
