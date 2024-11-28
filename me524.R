@@ -24,7 +24,7 @@ Hess_f1 <- function(b){
   b1 <- b[1]
   b2 <- b[2]
   del_b1_2 <- sum( 2 *(exp( -Misrala$x * b2) - 1) ^2 )
-  del_b1_b2 <- sum( -2 * Misrala$x * exp(-2 * Misrala$x * b2) * ((Misrala$y - 2 * b1) * exp(Misrala$x * b2) + 2 * b1))
+  del_b1_b2 <- sum( 2 * Misrala$x * exp(-2 * b2 * Misrala$x) * ((2 * exp(b2 * Misrala$x) - 2) * b1 - exp(b2 * Misrala$x) * Misrala$y))
   del_b2_2 <- sum((2 * b1 * Misrala$x^2 * exp(-2 * Misrala$x * b2) * ((Misrala$y - b1) * exp(Misrala$x * b2) + 2 * b1)))
   return(matrix(c(del_b1_2, del_b1_b2, del_b1_b2, del_b2_2),nrow = 2))
 }
